@@ -4,6 +4,7 @@ const api = require(__dirname + '/../mock-api');
 const { mockGetAppConfig } = require(__dirname + '/../mock-data/app-config');
 const { TIMEOUT } = require(__dirname + '/../constants');
 
+import nock from 'nock'
 
 const mockTRR = {
   id: 781,
@@ -40,23 +41,29 @@ const mockTRR = {
 
 describe('TRRPageTest', function () {
   beforeEach(function (client, done) {
-    api.cleanMock();
-    api.mock('GET', '/api/v2/app-config/', 200, mockGetAppConfig);
-    api.mock('GET', '/api/v2/mobile/trr/781/', 200, mockTRR);
-    api.mockPost(
+    const baseUrl = 'http://localhost:9002';
+
+    nock(baseUrl).get('/api/v2/app-config/').reply( 200, mockGetAppConfig);
+
+    nock(baseUrl).get('/api/v2/mobile/trr/781/').reply( 200, mockTRR);
+    nock(baseUrl).post(
       '/api/v2/mobile/trr/781/request-document/',
+      { email: 'valid@email.com' }
+      ).reply(
       200,
-      { email: 'valid@email.com' },
       { 'message': 'Thanks for subscribing.', 'trr_id': 781 }
-    );
-    api.mockPost(
+      );
+    nock(baseUrl).post(
       '/api/v2/mobile/trr/781/request-document/',
+      { email: 'invalid#email.com' }
+    ).reply(
       400,
-      { email: 'invalid#email.com' },
       { 'message': 'Sorry, we can not subscribe your email' }
     );
+
     this.trrPage = client.page.trrPage();
     this.trrPage.navigate(this.trrPage.url(781));
+    client.pause(999999);
     this.trrPage.expect.element('@body').to.be.present;
     done();
   });
@@ -65,7 +72,7 @@ describe('TRRPageTest', function () {
     done();
   });
 
-  it('should show proper header with TRR title force category', function () {
+  it.only('should show proper header with TRR title force category', function (client) {
     this.trrPage.expect.element('@trrHeader').text.to.equal('Other');
   });
 
